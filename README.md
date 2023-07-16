@@ -43,7 +43,7 @@ poetry shell
 2. Run using the following commands:
 
 ```text
-python string_searcher.py <directory> <search_term> [--depth <depth>] [-e <extensions>]
+python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>]
 ```
 
 **`<directory>`**: The directory to search in.
@@ -52,9 +52,9 @@ python string_searcher.py <directory> <search_term> [--depth <depth>] [-e <exten
 
 **`--maxdepth <depth>`**: The maximum depth to recurse into subdirectories. Default is 1. Use '--depth -1' for all subdirectories.
 
-**`--maxline <num>`**: The maximum line length to display. Default is 1000. Adjust if line is truncated.
-
 **`-e <extensions>`**: The file extensions to search within. Provide a comma-separated list. Default extensions include: **`.bat`, `.cfg`, `.csv`, `.css`, `.html`, `.ini`, `.js`, ``.log``, `.md`, `.ps1`, `.py`, `.sh`, `.txt`, `.xml`, `.yaml`, `.yml`**.
+
+**`--maxline <num>`**: The maximum line length to display. Default is 1000. Adjust if line is truncated.
 
 ## Dependencies
 
