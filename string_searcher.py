@@ -1,10 +1,12 @@
-"""Search all files in a directory for a given string."""
+"""Search all files in a directory for a given search term."""
 
 import argparse
+import json
 import multiprocessing
 import os
 import re
 import sys
+import time
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
@@ -17,107 +19,171 @@ from rich.panel import Panel
 console = Console(highlight=False)
 
 # Common text-based file extensions
-ACCEPTABLE_EXTENSIONS = {
-    ".txt",
-    ".md",
-    ".csv",
-    ".xml",
-    ".html",
-    ".htm",
-    ".rst",
-    ".ini",
-    ".py",
-    ".js",
-    ".css",
-    ".yml",
-    ".yaml",
-    ".php",
-    ".c",
-    ".cpp",
-    ".h",
-    ".hpp",
-    ".java",
-}
+# More found here: https://www.file-extensions.org/filetype/extension/name/text-files
+with open("textfile_extensions.json") as f:
+    ACCEPTABLE_EXTENSIONS = set(json.load(f))
 
 
-def search_file(file_path: Path, search_term: str, use_regex: bool, file_extensions: set[str]) -> list[str]:
-    """Search a file for a given string."""
-    results = []
-    if file_path.is_file() and file_path.suffix.lower() in file_extensions:
-        with file_path.open(encoding="utf8", errors="ignore") as f:
-            for idx, line in enumerate(f):
-                match = re.search(search_term, line) if use_regex else search_term in line
-                if match:
-                    highlighted_line = re.sub(search_term, f"[bold][green]{search_term}[/green][/bold]", line)
-                    results.append(
-                        f"[yellow]{file_path}[/yellow] - [cyan]Line {idx + 1}[/cyan]\n{highlighted_line}",
-                    )
-    return results
+class FileSearcher:
+    """Class used to search all files in a directory for a given search term."""
 
+    def __init__(
+        self: "FileSearcher",
+        directory: str,
+        search_term: str,
+        maxdepth: int,
+        extensions: str,
+        maxline: int,
+        case_sensitive: bool,
+    ) -> None:
+        """Initialize the FileSearcher class."""
+        self.directory = Path(directory)
+        self.search_term = search_term
+        self.maxdepth = maxdepth
+        self.extensions = {ext if ext.startswith(".") else f".{ext}" for ext in extensions.lower().split(",")}
+        self.maxline = maxline
+        self.case_sensitive = case_sensitive
 
-def scan_directory(path: Path, depth: int, extensions: set[str], current_depth: int = 0) -> tuple[int, Iterable[Path]]:
-    """Recursively scan a directory up to a given depth and yield files."""
-    count = 0
-    files = []
-    # ignore depth limit when depth is -1
-    if path.is_dir() and (depth == -1 or current_depth <= depth):
-        for entry in os.scandir(path):
-            entry_path = Path(entry.path)
-            if entry.is_file() and entry_path.suffix.lower() in extensions:
-                files.append(entry_path)
-            elif entry.is_dir() and (depth == -1 or current_depth < depth):  # only traverse to specified depth
-                sub_count, sub_files = scan_directory(entry_path, depth, extensions, current_depth + 1)
-                count += sub_count
-                files.extend(sub_files)
-        count += 1
+        # Check if args.search_term is empty or contains double quotes.
+        if not self.search_term:
+            console.print(
+                ":no_entry: [red]\\[ERROR][/red] Search term is empty. If your search term includes special "
+                "characters like $, enclose it in single quotes (e.g., '$search').",
+            )
+            sys.exit(1)
 
-    return count, files
+        # Check if args.search_term contains any special characters that need to be escaped.
+        self.use_regex = re.search(r"[.*+?^$%{}()|[\]\\]", self.search_term) is not None
 
+        # Set flags based on case sensitivity and compile search term into a regular expression pattern.
+        flags = 0 if self.case_sensitive else re.IGNORECASE
+        if self.use_regex:
+            self.search_term_pattern = re.compile(self.search_term, flags=flags)
+        else:
+            self.search_term_pattern = re.compile(r"(?<!\w)" + re.escape(self.search_term) + r"(?!\w)", flags=flags)
 
-def search_worker(use_regex: bool, search_term: str, user_extensions: set[str], all_files: Iterable[Path]) -> int:
-    """Search Worker."""
-    num_cores = multiprocessing.cpu_count()
-    num_workers = 3 * num_cores if use_regex else 5 * num_cores
+        # Check if user-provided extensions are acceptable.
+        if not self.extensions.intersection(ACCEPTABLE_EXTENSIONS):
+            console.print("Invalid extension(s) provided. Please ensure they are text-based files. :expressionless:")
+            sys.exit(1)
 
-    # choose executor type based on whether the task is CPU-bound or IO-bound
-    # regex searches are CPU-intensive, so use ProcessPoolExecutor
-    # non-regex searches are IO-bound, so use ThreadPoolExecutor
-    executor_class = ProcessPoolExecutor if use_regex else ThreadPoolExecutor
-    console.print(f":fire: Using {num_workers} {executor_class.__name__} workers\n")
+    def search_file(self: "FileSearcher", file_path: Path) -> list[str]:
+        """Search a file for a given search term."""
+        results = []
+        if file_path.is_file() and file_path.suffix.lower() in self.extensions:
+            remaining_line = ""
+            line_count = 0
+            chunk_size = 8192
+            with file_path.open(encoding="utf8", errors="ignore") as f:
+                while chunk := f.read(chunk_size):
+                    lines = (remaining_line + chunk).split("\n")
+                    remaining_line = lines.pop()  # carry remaining line to next chunk
+                    for idx, line in enumerate(lines, start=line_count + 1):
+                        line_count = idx
+                        display_line = line
+                        display_line = (
+                            f"{line[:self.maxline]}[grey50]...\\[truncated][/grey50]"
+                            if len(line) > self.maxline
+                            else line
+                        )
+                        matches = self.search_term_pattern.finditer(display_line)
+                        for match in matches:
+                            start = match.start()
+                            end = match.end()
+                            highlight_match = (
+                                f"{display_line[:start]}[bold][green]{display_line[start:end]}[/green][/bold]"
+                                f"{display_line[end:]}"
+                            )
+                            results.append(
+                                f"[yellow]{file_path}[/yellow] - [cyan]Line {line_count}[/cyan]\n"
+                                f"{highlight_match}\n",
+                            )
+        return results
 
-    results_count = 0
-    try:
-        all_results = []
-        with console.status("Searching..."), executor_class(max_workers=num_workers) as executor:
-            futures_to_files = {
-                executor.submit(
-                    search_file,
-                    file_path,
-                    search_term,
-                    use_regex,
-                    user_extensions,
-                ): file_path
-                for file_path in all_files
-            }
-            for future in as_completed(futures_to_files):
-                file_path = futures_to_files[future]
-                try:
-                    lines = future.result()
-                    if lines:
-                        results_count += 1
-                    all_results.extend(lines)
-                except Exception as exc:
-                    console.print(f"[red]{file_path} generated an exception :scream: :{exc}[/red]")
+    def scan_directory(self: "FileSearcher", path: Path, depth: int = 0) -> tuple[int, Iterable[Path]]:
+        """Recursively scan a directory up to a given max depth and yield files.
 
-        # print all results after `console.status` is finished
-        for result in all_results:
-            console.print(result)
+        ...
 
-    except KeyboardInterrupt:
-        console.print("Search cancelled :relieved:")
-        sys.exit(1)
+        Notes:
+        -----
+            Use of os.scandir() was slightly faster than Path.iterdir()
+        """
+        count = 0
+        files = []
+        if path.is_dir() and (self.maxdepth == -1 or depth <= self.maxdepth):  # Ignore depth limit if max depth is -1
+            for entry in os.scandir(path):
+                entry_path = Path(entry.path)
+                if entry.is_file() and entry_path.suffix.lower() in self.extensions:
+                    files.append(entry_path)
+                elif entry.is_dir() and (
+                    self.maxdepth == -1 or depth < self.maxdepth
+                ):  # Only traverse to specified depth
+                    sub_count, sub_files = self.scan_directory(entry_path, depth + 1)
+                    count += sub_count
+                    files.extend(sub_files)
+            count += 1
+        return count, files
 
-    return results_count
+    def search_worker(self: "FileSearcher", all_files: Iterable[Path]) -> int:
+        """Searches for the given search term in all files in the given directory.
+
+        ...
+
+        Notes:
+        -----
+            Choose the executor type based on whether the task is CPU-bound or IO-bound
+            Regex searches are CPU-intensive, so use ProcessPoolExecutor
+            Non-regex searches are IO-bound, so use ThreadPoolExecutor
+        """
+        num_cores = multiprocessing.cpu_count()
+        num_workers = 3 * num_cores if self.use_regex else 5 * num_cores
+
+        executor_class = ProcessPoolExecutor if self.use_regex else ThreadPoolExecutor
+        console.print(f":fire: Using {num_workers} {executor_class.__name__} workers\n")
+
+        results_count = 0
+        try:
+            all_results = []
+            with console.status("Searching..."), executor_class(max_workers=num_workers) as executor:
+                futures_to_files = {executor.submit(self.search_file, file_path): file_path for file_path in all_files}
+                for future in as_completed(futures_to_files):
+                    file_path = futures_to_files[future]
+                    try:
+                        lines = future.result()
+                        if lines:
+                            results_count += 1
+                        all_results.extend(lines)
+                    except Exception as exc:
+                        console.print(f"[red]{file_path} generated an exception :scream: :{exc}[/red]")
+
+            # print all results after `console.status` is finished
+            for result in all_results:
+                console.print(result)
+
+        except KeyboardInterrupt:
+            console.print("Search cancelled :relieved:")
+            sys.exit(1)
+
+        return results_count
+
+    def main(self: "FileSearcher") -> None:
+        """Main function that executes the search process."""
+        # Return the number the number of directories and files found in the directory tree.
+        directory_count, all_files = self.scan_directory(self.directory)
+
+        # Return the number of files that contain the search term.
+        results_count = self.search_worker(all_files)
+
+        # Print a summary of the search.
+        depth_summary = "all" if self.maxdepth == -1 else self.maxdepth
+        box_panel = Panel(
+            f"Crawled {directory_count} directories at a maximum depth of {depth_summary}. "
+            f"Found results in {results_count} files for search term '{self.search_term}'.",
+            expand=False,
+            border_style="blue",
+        )
+        console.print(box_panel)
 
 
 def arg_parser() -> argparse.Namespace:
@@ -126,68 +192,59 @@ def arg_parser() -> argparse.Namespace:
     parser.add_argument("directory", type=str, help="The directory to search")
     parser.add_argument("search_term", type=str, help="The string to search for")
     parser.add_argument(
-        "--depth",
+        "--maxdepth",
         type=int,
         default=1,
-        help="The maximum depth to recurse. Default is 1. Use '--depth -1' for all subdirectories",
+        help="The maximum depth to recurse. Default is 1. Use '--maxdepth -1' for all subdirectories",
     )
     parser.add_argument(
         "-e",
         "--extensions",
         type=str,
-        default=".txt,.md,.csv,.xml,.html,.py,.js,.css,.yml,.yaml",
+        default=".bat,.cfg,.csv,.css,.html,.ini,.js,.log,.md,.ps1,.py,.sh,.txt,.xml,.yaml,.yml",
         help="The file extensions to search in. Provide a comma separated list e.g., .txt,.py,.md",
     )
+    parser.add_argument(
+        "-m",
+        "--maxline",
+        type=int,
+        default=1000,
+        help="The maximum line length to display. Default is 1000. Adjust if line is truncated.",
+    )
+    parser.add_argument("-c", "--case-sensitive", action="store_true", help="Perform a case-sensitive search")
     return parser.parse_args()
 
 
 def main() -> None:
-    """Main function."""
+    """Main entry point for the script."""
     args = arg_parser()
-    base_path = Path(args.directory)
-
-    # decide whether to use regex based on search_term
-    use_regex = re.search(r"[.*+?^${}()|[\]\\]", args.search_term) is not None
-    search_term = f"\b({args.search_term})\b" if use_regex else args.search_term
-
-    # convert user-provided extensions to a set
-    user_extensions = {ext if ext.startswith(".") else f".{ext}" for ext in args.extensions.lower().split(",")}
-
-    # check if user-provided extensions are acceptable
-    if not user_extensions.issubset(ACCEPTABLE_EXTENSIONS):
-        console.print("Invalid extension(s) provided. Please ensure they are text-based files. :expressionless:")
-        sys.exit(1)
-
-    # store results of the directory scan for further processing
-    directory_count, all_files = scan_directory(base_path, args.depth, user_extensions)
-
-    # run search worker
-    results_count = search_worker(use_regex, search_term, user_extensions, all_files)
-
-    # results summary
-    depth_summary = "all" if args.depth == -1 else args.depth
-    pnl = Panel(
-        f"Crawled {directory_count} directories at a maximum depth of {depth_summary}. "
-        f"Found results in {results_count} files for search term '{args.search_term}'.",
-        expand=False,
-        border_style="blue",
+    searcher = FileSearcher(
+        args.directory,
+        args.search_term,
+        args.maxdepth,
+        args.extensions,
+        args.maxline,
+        args.case_sensitive,
     )
-    console.print(pnl)
+    searcher.main()
 
 
 if __name__ == "__main__":
-    # Banner ('Elite') courtesy of https://manytools.org/hacker-tools/ascii-banner/
     banner = """
-.▄▄ · ▄▄▄▄▄▄▄▄  ▪   ▐ ▄  ▄▄ •
-▐█ ▀. •██  ▀▄ █·██ •█▌▐█▐█ ▀ ▪
-▄▀▀▀█▄ ▐█.▪▐▀▀▄ ▐█·▐█▐▐▌▄█ ▀█▄
-▐█▄▪▐█ ▐█▌·▐█•█▌▐█▌██▐█▌▐█▄▪▐█
- ▀▀▀▀  ▀▀▀ .▀  ▀▀▀▀▀▀ █▪·▀▀▀▀
-.▄▄ · ▄▄▄ . ▄▄▄· ▄▄▄   ▄▄·  ▄ .▄▄▄▄ .▄▄▄
-▐█ ▀. ▀▄.▀·▐█ ▀█ ▀▄ █·▐█ ▌▪██▪▐█▀▄.▀·▀▄ █·
-▄▀▀▀█▄▐▀▀▪▄▄█▀▀█ ▐▀▀▄ ██ ▄▄██▀▐█▐▀▀▪▄▐▀▀▄
-▐█▄▪▐█▐█▄▄▌▐█ ▪▐▌▐█•█▌▐███▌██▌▐▀▐█▄▄▌▐█•█▌
- ▀▀▀▀  ▀▀▀  ▀  ▀ .▀  ▀·▀▀▀ ▀▀▀ · ▀▀▀ .▀  ▀
+    .▄▄ · ▄▄▄▄▄▄▄▄  ▪   ▐ ▄  ▄▄ •
+    ▐█ ▀. •██  ▀▄ █·██ •█▌▐█▐█ ▀ ▪
+    ▄▀▀▀█▄ ▐█.▪▐▀▀▄ ▐█·▐█▐▐▌▄█ ▀█▄
+    ▐█▄▪▐█ ▐█▌·▐█•█▌▐█▌██▐█▌▐█▄▪▐█
+     ▀▀▀▀  ▀▀▀ .▀  ▀▀▀▀▀▀ █▪·▀▀▀▀
+    .▄▄ · ▄▄▄ . ▄▄▄· ▄▄▄   ▄▄·  ▄ .▄▄▄▄ .▄▄▄
+    ▐█ ▀. ▀▄.▀·▐█ ▀█ ▀▄ █·▐█ ▌▪██▪▐█▀▄.▀·▀▄ █·
+    ▄▀▀▀█▄▐▀▀▪▄▄█▀▀█ ▐▀▀▄ ██ ▄▄██▀▐█▐▀▀▪▄▐▀▀▄
+    ▐█▄▪▐█▐█▄▄▌▐█ ▪▐▌▐█•█▌▐███▌██▌▐▀▐█▄▄▌▐█•█▌
+     ▀▀▀▀  ▀▀▀  ▀  ▀ .▀  ▀·▀▀▀ ▀▀▀ · ▀▀▀ .▀  ▀
     """
     console.print(banner, style="bold cyan")
+
+    start = time.time()
     main()
+    end = time.time()
+    console.print(f"Elapsed time: {end - start:.2f} seconds")
