@@ -50,9 +50,11 @@ python string_searcher.py <directory> <search_term> [--depth <depth>] [-e <exten
 
 **`<search_term>`**: The string to search for.
 
-**`--depth <depth>`**: The maximum depth to recurse into subdirectories. Default is 1. Use '--depth -1' for all subdirectories.
+**`--maxdepth <depth>`**: The maximum depth to recurse into subdirectories. Default is 1. Use '--depth -1' for all subdirectories.
 
-**`-e <extensions>`**: The file extensions to search within. Provide a comma-separated list. Default extensions include **`.txt`, `.md`, `.csv`, `.xml`, `.html`, `.py`, `.js`, `.css`, `.yml`, `.yaml`**.
+**`--maxline <num>`**: The maximum line length to display. Default is 1000. Adjust if line is truncated.
+
+**`-e <extensions>`**: The file extensions to search within. Provide a comma-separated list. Default extensions include: **`.bat`, `.cfg`, `.csv`, `.css`, `.html`, `.ini`, `.js`, ``.log``, `.md`, `.ps1`, `.py`, `.sh`, `.txt`, `.xml`, `.yaml`, `.yml`**.
 
 ## Dependencies
 
@@ -67,3 +69,5 @@ This script is licensed under the MIT License. Feel free to modify and use it ac
 The script utilizes the rich library for enhanced console output.
 
 The banner text used in the script is courtesy of [Manytools](https://manytools.org/hacker-tools/ascii-banner/).
+
+The text file extension list is courtesy of [File-Extensions](https://www.file-extensions.org/filetype/extension/name/text-files).
