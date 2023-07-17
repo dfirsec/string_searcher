@@ -13,24 +13,21 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from datetime import datetime
 from pathlib import Path
+from turtle import color
 
 from rich.console import Console
 from rich.panel import Panel
+from utils.helpers import arg_parser
+from utils.helpers import get_closest_matches
+from utils.helpers import valid_date
 
 console = Console(highlight=False)
 
 # Common text-based file extensions
-with open("textfile_extensions.json") as f:
+root = Path(__file__).parent
+extensions_file = Path(root / "utils" / "file_extensions.json").resolve()
+with open(extensions_file) as f:
     ACCEPTABLE_EXTENSIONS = set(json.load(f))
-
-
-def valid_date(date_str: str) -> datetime:
-    """Validate date string and return a datetime object to FileSearcher class."""
-    date = datetime.strptime(date_str, "%Y-%m-%d").astimezone()
-    if date_str != date.strftime("%Y-%m-%d"):
-        msg = f"Date must be in 'YYYY-MM-DD' format, but got {date_str}"
-        raise argparse.ArgumentTypeError(msg)
-    return date
 
 
 class FileSearcher:
@@ -79,7 +76,21 @@ class FileSearcher:
 
         # Check if user-provided extensions are acceptable.
         if not self.extensions.intersection(ACCEPTABLE_EXTENSIONS):
-            console.print("Invalid extension(s) provided. Please ensure they are text-based files. :expressionless:")
+            closest_extensions = get_closest_matches(str(self.extensions), ACCEPTABLE_EXTENSIONS)
+            if closest_extensions:
+                console.print(
+                    Panel(
+                        "Did you mean to search for one of these extensions? "
+                        f":thinking_face:\n\n[bright_white]{', '.join(closest_extensions)}[/bright_white]",
+                        title="Closest Extension Matches",
+                        expand=False,
+                        border_style="blue",
+                    ),
+                )
+            else:
+                console.print(
+                    "Invalid extension(s) provided. Please ensure they are text-based files. :expressionless:",
+                )
             sys.exit(1)
 
     def is_valid_file(self: "FileSearcher", file_path: Path) -> bool:
@@ -122,8 +133,7 @@ class FileSearcher:
                             start = match.start()
                             end = match.end()
                             result_line = (
-                                f"{result_line[:start]}[bold][green]{result_line[start:end]}[/green][/bold]"
-                                f"{result_line[end:]}"
+                                f"{result_line[:start]}[green1]{result_line[start:end]}[/green1]" f"{result_line[end:]}"
                             )
                         results.append(
                             f"[yellow]{file_path}[/yellow] - [cyan]Line {line_count}[/cyan] ([magenta]"
@@ -207,71 +217,15 @@ class FileSearcher:
 
         # Print a summary of the search.
         depth_summary = "all" if self.maxdepth == -1 else self.maxdepth
-        box_panel = Panel(
-            f"Crawled {directory_count} directories at a maximum depth of {depth_summary}. "
-            f"Found results in {results_count} files for search term '{self.search_term}.'",
-            expand=False,
-            border_style="blue",
+        console.print(
+            Panel(
+                f"Crawled {directory_count} directories at a maximum depth of {depth_summary}. "
+                f"Found results in {results_count} files for search term '{self.search_term}.'",
+                title="Summary Results",
+                expand=False,
+                border_style="blue",
+            ),
         )
-        console.print(box_panel)
-
-
-def arg_parser() -> argparse.Namespace:
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("directory", type=str, help="The directory to search")
-    parser.add_argument("search_term", type=str, help="The string to search for")
-    parser.add_argument(
-        "--maxdepth",
-        type=int,
-        default=1,
-        help="The maximum depth to recurse. Default is 1. Use '--maxdepth -1' for all subdirectories",
-    )
-    parser.add_argument(
-        "-e",
-        "--extensions",
-        type=str,
-        default=".bat,.cfg,.csv,.css,.html,.ini,.js,.log,.md,.ps1,.py,.sh,.txt,.xml,.yaml,.yml",
-        help="The file extensions to search in. Provide a comma separated list e.g., .txt,.py,.md",
-    )
-    parser.add_argument(
-        "-m",
-        "--maxline",
-        type=int,
-        default=1000,
-        help="The maximum line length to display. Default is 1000. Adjust if line is truncated.",
-    )
-    parser.add_argument("-c", "--case-sensitive", action="store_true", help="Perform a case-sensitive search")
-    parser.add_argument(
-        "--start-date",
-        type=str,
-        help="The start date for modification date filtering. Use format YYYY-MM-DD",
-    )
-    parser.add_argument(
-        "--end-date",
-        type=str,
-        help="The end date for modification date filtering. Use format YYYY-MM-DD",
-    )
-    parser.add_argument("--size-limit", type=float, help="The maximum file size to consider in kilobytes")
-
-    args = parser.parse_args()
-
-    # Validate start_date and end_date
-    date_format = "%Y-%m-%d"
-    if args.start_date:
-        try:
-            datetime.strptime(args.start_date, date_format).astimezone()
-        except ValueError:
-            console.print(":no_entry: [red]\\[ERROR][/red] Invalid start date. Use format YYYY-MM-DD.")
-            sys.exit(1)
-    if args.end_date:
-        try:
-            datetime.strptime(args.end_date, date_format).astimezone()
-        except ValueError:
-            console.print(":no_entry: [red]\\[ERROR][/red] Invalid end date. Use format YYYY-MM-DD.")
-            sys.exit(1)
-
-    return args
 
 
 def main() -> None:
@@ -308,7 +262,7 @@ if __name__ == "__main__":
     ▐█▄▪▐█▐█▄▄▌▐█ ▪▐▌▐█•█▌▐███▌██▌▐▀▐█▄▄▌▐█•█▌
      ▀▀▀▀  ▀▀▀  ▀  ▀ .▀  ▀·▀▀▀ ▀▀▀ · ▀▀▀ .▀  ▀
     """
-    console.print(banner, style="bold cyan")
+    console.print(banner, style="bright_cyan")
 
     start = time.perf_counter()
     main()
