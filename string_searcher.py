@@ -13,7 +13,6 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from datetime import datetime
 from pathlib import Path
-from turtle import color
 
 from rich.console import Console
 from rich.panel import Panel
