@@ -115,18 +115,20 @@ class FileSearcher:
                     display_line = (
                         f"{line[:self.maxline]}[grey50]...\\[truncated][/grey50]" if len(line) > self.maxline else line
                     )
-                    matches = self.search_term_pattern.finditer(display_line)
-                    for match in matches:
-                        start = match.start()
-                        end = match.end()
-                        highlight_match = (
-                            f"{display_line[:start]}[bold][green]{display_line[start:end]}[/green][/bold]"
-                            f"{display_line[end:]}"
-                        )
+                    matches = list(self.search_term_pattern.finditer(display_line))
+                    if matches:
+                        result_line = display_line
+                        for match in reversed(matches):  # reverse to avoid messing up indices
+                            start = match.start()
+                            end = match.end()
+                            result_line = (
+                                f"{result_line[:start]}[bold][green]{result_line[start:end]}[/green][/bold]"
+                                f"{result_line[end:]}"
+                            )
                         results.append(
                             f"[yellow]{file_path}[/yellow] - [cyan]Line {line_count}[/cyan] ([magenta]"
                             f"{modification_date}[/magenta])\n"
-                            f"{highlight_match}\n",
+                            f"{result_line}\n",
                         )
         return results
 
