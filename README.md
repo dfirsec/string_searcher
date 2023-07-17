@@ -4,11 +4,11 @@ This script allows you to search all text-based files in a directory for a given
 
 ## Features
 
-Supports both simple string matching and regular expressions
-
-Recursive search with a specified depth level
-
-Customizable file extensions to search
+- Supports both simple string matching and regular expressions
+- Recursive search with a specified depth level
+- Customizable file extensions to search
+- Search within a specific date range
+- File size limit option
 
 ## Installation
 
@@ -43,7 +43,7 @@ poetry shell
 2. Run using the following commands:
 
 ```text
-python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>]
+python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>] [--size-limit <size>] [--start-date <start_date>] [--end-date <end_date>]
 ```
 
 **`<directory>`**: The directory to search in.
@@ -55,6 +55,12 @@ python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <ex
 **`-e <extensions>`**: The file extensions to search within. Provide a comma-separated list. Default extensions include: **`.bat`, `.cfg`, `.csv`, `.css`, `.html`, `.ini`, `.js`, ``.log``, `.md`, `.ps1`, `.py`, `.sh`, `.txt`, `.xml`, `.yaml`, `.yml`**.
 
 **`--maxline <num>`**: The maximum line length to display. Default is 1000. Adjust if line is truncated.
+
+**`--start-date <start_date>`**: The start date for modification date filtering. Use format YYYY-MM-DD.
+
+**`--end-date <end_date>`**`: The end date for modification date filtering. Use format YYYY-MM-DD.
+
+**`--size-limit <size>`**: The maximum file size to consider in kilobytes.
 
 ## Dependencies
 
