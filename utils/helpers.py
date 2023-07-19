@@ -6,7 +6,9 @@ from datetime import datetime
 from difflib import SequenceMatcher
 
 from rich import console
+from rich.traceback import install
 
+install(show_locals=True)
 console = console.Console()
 
 

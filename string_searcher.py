@@ -16,10 +16,12 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.traceback import install
 from utils.helpers import arg_parser
 from utils.helpers import get_closest_matches
 from utils.helpers import valid_date
 
+install(show_locals=True)
 console = Console(highlight=False)
 
 # Common text-based file extensions
@@ -152,7 +154,7 @@ class FileSearcher:
         """
         count = 0
         files = []
-        if path.is_dir() and (self.maxdepth == -1 or depth <= self.maxdepth):  # Ignore depth limit if max depth is -1
+        if path.is_dir() and (self.maxdepth == -1 or depth <= self.maxdepth):  # ignore depth limit if max depth is -1
             for entry in os.scandir(path):
                 entry_path = Path(entry.path)
                 if self.is_valid_file(entry_path):
@@ -218,7 +220,7 @@ class FileSearcher:
         depth_summary = "all" if self.maxdepth == -1 else self.maxdepth
         console.print(
             Panel(
-                f"Crawled {directory_count} directories at a maximum depth of {depth_summary}. "
+                f"Crawled {directory_count} directories at a max depth of {depth_summary}. "
                 f"Found results in {results_count} files for search term '{self.search_term}.'",
                 title="Summary Results",
                 expand=False,
