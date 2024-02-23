@@ -5,11 +5,11 @@ import sys
 from datetime import datetime
 from difflib import SequenceMatcher
 
-from rich import console
+from rich.console import Console
 from rich.traceback import install
 
 install(show_locals=True)
-console = console.Console()
+console = Console()
 
 
 def arg_parser() -> argparse.Namespace:

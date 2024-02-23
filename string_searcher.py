@@ -27,7 +27,7 @@ console = Console(highlight=False)
 # Common text-based file extensions
 root = Path(__file__).parent
 extensions_file = Path(root / "utils" / "file_extensions.json").resolve()
-with open(extensions_file) as f:
+with Path.open(extensions_file) as f:
     ACCEPTABLE_EXTENSIONS = set(json.load(f))
 
 
@@ -102,7 +102,7 @@ class FileSearcher:
             and file_path.suffix.lower() in self.extensions
             and (self.start_date is None or self.start_date <= modification_date)
             and (self.end_date is None or modification_date <= self.end_date)
-            and (self.size_limit is None or os.path.getsize(file_path) <= self.size_limit)
+            and (self.size_limit is None or Path.stat(file_path).st_size <= self.size_limit)
         )
 
     def search_file(self: "FileSearcher", file_path: Path) -> list[str]:
@@ -198,7 +198,7 @@ class FileSearcher:
                     except Exception as exc:
                         console.print(f"[red]{file_path} generated an exception :scream: :{exc}[/red]")
 
-            # print all results after `console.status` is finished
+            # Print all results after `console.status` is finished
             for result in all_results:
                 console.print(result)
 
