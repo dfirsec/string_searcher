@@ -77,8 +77,7 @@ class FileSearcher:
 
         # Check if user-provided extensions are acceptable.
         if not self.extensions.intersection(ACCEPTABLE_EXTENSIONS):
-            closest_extensions = get_closest_matches(str(self.extensions), ACCEPTABLE_EXTENSIONS)
-            if closest_extensions:
+            if closest_extensions := get_closest_matches(str(self.extensions), ACCEPTABLE_EXTENSIONS):
                 console.print(
                     Panel(
                         "Did you mean to search for one of these extensions? "
@@ -127,8 +126,7 @@ class FileSearcher:
                     display_line = (
                         f"{line[:self.maxline]}[grey50]...\\[truncated][/grey50]" if len(line) > self.maxline else line
                     )
-                    matches = list(self.search_term_pattern.finditer(display_line))
-                    if matches:
+                    if matches := list(self.search_term_pattern.finditer(display_line)):
                         result_line = display_line
                         for match in reversed(matches):  # reverse to avoid messing up indices
                             start = match.start()
