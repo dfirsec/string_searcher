@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "string-searcher"
-version = "0.1.1"
+version = "0.1.2"
 description = "Search all files in a directory for a given search term."
 authors = ["Mitch Haddadi <12067255+dfirsec@users.noreply.github.com>"]
 license = "MIT"
@@ -8,8 +8,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-rich = "^13.7.0"
-
+rich = "^13.7.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -14,37 +14,36 @@ This script allows you to search all text-based files in a directory for a given
 
 1. Clone the repository or download the script files.
 
-```text
-git clone https://github.com/dfirsec/string_searcher.git
-```
+    ```bash
+    git clone https://github.com/dfirsec/string_searcher.git
+    ```
 
 2. Navigate to the project directory:
 
-```text
-cd string_searcher
-```
+    ```bash
+    cd string_searcher
+    ```
 
 3. Install the dependencies using poetry:
 
-```text
-pip install poetry
-
-poetry install
-```
+    ```bash
+    pip install poetry
+    poetry install
+    ```
 
 ## Usage
 
 1. Create the virtual environment
 
-```text
-poetry shell
-```
+    ```bash
+    poetry shell
+    ```
 
 2. Run using the following commands:
 
-```text
-python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>] [--size-limit <size>] [--start-date <start_date>] [--end-date <end_date>]
-```
+    ```bash
+    python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>] [--size-limit <size>] [--start-date <start_date>] [--end-date <end_date>]
+    ```
 
 **`<directory>`**: The directory to search in.
 

@@ -11,17 +11,16 @@ from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.traceback import install
 from utils.helpers import arg_parser
 from utils.helpers import get_closest_matches
 from utils.helpers import valid_date
 
-install(show_locals=True)
 console = Console(highlight=False)
 
 # Common text-based file extensions
@@ -31,33 +30,53 @@ with Path.open(extensions_file) as f:
     ACCEPTABLE_EXTENSIONS = set(json.load(f))
 
 
+@dataclass
+class SearchConfig:
+    """Data class to store search configuration options."""
+
+    directory: str
+    search_term: str
+    maxdepth: int
+    extensions: str | None = None
+    maxline: int = 1000
+    case_sensitive: bool = False
+    start_date: str | None = None
+    end_date: str | None = None
+    size_limit: float | None = None
+
+
 class FileSearcher:
     """Class used to search all files in a directory for a given search term."""
 
-    def __init__(
-        self: "FileSearcher",
-        directory: str,
-        search_term: str,
-        maxdepth: int,
-        extensions: str,
-        maxline: int,
-        case_sensitive: bool,
-        start_date: str | None,
-        end_date: str | None,
-        size_limit: float = sys.maxsize,
-    ) -> None:
+    def __init__(self, config: SearchConfig):
         """Initialize the FileSearcher class."""
-        self.directory = Path(directory)
-        self.search_term = search_term
-        self.maxdepth = maxdepth
-        self.extensions = {ext if ext.startswith(".") else f".{ext}" for ext in extensions.lower().split(",")}
-        self.maxline = maxline
-        self.case_sensitive = case_sensitive
-        self.start_date = valid_date(start_date) if start_date else None
-        self.end_date = valid_date(end_date) if end_date else None
-        self.size_limit = size_limit * 1024 if size_limit else None
+        self.config = config
+        self.directory = Path(config.directory)
+        self.search_term = config.search_term
+        self.maxdepth = config.maxdepth
+        self.extensions = (
+            {ext if ext.startswith(".") else f".{ext}" for ext in config.extensions.lower().split(",")}
+            if config.extensions
+            else ACCEPTABLE_EXTENSIONS
+        )
+        self.maxline = config.maxline
+        self.case_sensitive = config.case_sensitive
+        self.start_date = valid_date(config.start_date) if config.start_date else None
+        self.end_date = valid_date(config.end_date) if config.end_date else None
 
-        # Check if args.search_term is empty or contains double quotes.
+        # Convert size limit to kilobytes - set to None if no limit
+        if config.size_limit is not None:
+            self.size_limit = config.size_limit * 1024 if config.size_limit != sys.maxsize else None
+        else:
+            self.size_limit = None
+
+        # Initialize search term pattern and flags
+        self._validate_search_term()
+        self._prepare_search_term()
+        self._validate_extensions()
+
+    def _validate_search_term(self) -> None:
+        """Validate the search term and check if it is a regex pattern."""
         if not self.search_term:
             console.print(
                 ":no_entry: [red]\\[ERROR][/red] Search term is empty. If your search term includes special "
@@ -65,18 +84,18 @@ class FileSearcher:
             )
             sys.exit(1)
 
-        # Check if args.search_term contains any special characters that need to be escaped.
+    def _prepare_search_term(self) -> None:
+        """Prepare the search term by compiling the regex pattern if needed."""
         self.use_regex = re.search(r"[.*+?^$%{}()|[\]\\]", self.search_term) is not None
-
-        # Set flags based on case sensitivity and compile search term into a regular expression pattern.
         flags = 0 if self.case_sensitive else re.IGNORECASE
         if self.use_regex:
             self.search_term_pattern = re.compile(self.search_term, flags=flags)
         else:
             self.search_term_pattern = re.compile(r"(?<!\w)" + re.escape(self.search_term) + r"(?!\w)", flags=flags)
 
-        # Check if user-provided extensions are acceptable.
-        if not self.extensions.intersection(ACCEPTABLE_EXTENSIONS):
+    def _validate_extensions(self) -> None:
+        """Validate the file extensions provided by the user."""
+        if self.config.extensions and not self.extensions.intersection(ACCEPTABLE_EXTENSIONS):
             if closest_extensions := get_closest_matches(str(self.extensions), ACCEPTABLE_EXTENSIONS):
                 console.print(
                     Panel(
@@ -228,20 +247,21 @@ class FileSearcher:
 
 
 def main() -> None:
-    """Main entry point for the script."""
+    """Main script execution."""
     try:
         args = arg_parser()
-        searcher = FileSearcher(
-            args.directory,
-            args.search_term,
-            args.maxdepth,
-            args.extensions,
-            args.maxline,
-            args.case_sensitive,
-            args.start_date,
-            args.end_date,
-            args.size_limit,
+        config = SearchConfig(
+            directory=args.directory,
+            search_term=args.search_term,
+            maxdepth=args.maxdepth,
+            extensions=args.extensions if hasattr(args, "extensions") else None,
+            maxline=args.maxline,
+            case_sensitive=args.case_sensitive,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            size_limit=args.size_limit,
         )
+        searcher = FileSearcher(config)
         searcher.get_results()
     except argparse.ArgumentTypeError as err:
         console.print(f":no_entry: [red]\\[ERROR][/red] {err}")
@@ -249,18 +269,18 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    banner = """
-    .▄▄ · ▄▄▄▄▄▄▄▄  ▪   ▐ ▄  ▄▄ •
-    ▐█ ▀. •██  ▀▄ █·██ •█▌▐█▐█ ▀ ▪
-    ▄▀▀▀█▄ ▐█.▪▐▀▀▄ ▐█·▐█▐▐▌▄█ ▀█▄
-    ▐█▄▪▐█ ▐█▌·▐█•█▌▐█▌██▐█▌▐█▄▪▐█
-     ▀▀▀▀  ▀▀▀ .▀  ▀▀▀▀▀▀ █▪·▀▀▀▀
-    .▄▄ · ▄▄▄ . ▄▄▄· ▄▄▄   ▄▄·  ▄ .▄▄▄▄ .▄▄▄
-    ▐█ ▀. ▀▄.▀·▐█ ▀█ ▀▄ █·▐█ ▌▪██▪▐█▀▄.▀·▀▄ █·
-    ▄▀▀▀█▄▐▀▀▪▄▄█▀▀█ ▐▀▀▄ ██ ▄▄██▀▐█▐▀▀▪▄▐▀▀▄
-    ▐█▄▪▐█▐█▄▄▌▐█ ▪▐▌▐█•█▌▐███▌██▌▐▀▐█▄▄▌▐█•█▌
-     ▀▀▀▀  ▀▀▀  ▀  ▀ .▀  ▀·▀▀▀ ▀▀▀ · ▀▀▀ .▀  ▀
-    """
+    banner = r"""
+   _____ __       _
+  / ___// /______(_)___  ____ _
+  \__ \/ __/ ___/ / __ \/ __ `/
+ ___/ / /_/ /  / / / / / /_/ /
+/____/\__/_/  /_/_/ /_/\__, / __
+  / ___/___  ____ ____/____/_/ /_  ___  _____
+  \__ \/ _ \/ __ `/ ___/ ___/ __ \/ _ \/ ___/
+ ___/ /  __/ /_/ / /  / /__/ / / /  __/ /
+/____/\___/\__,_/_/   \___/_/ /_/\___/_/
+"""
+
     console.print(banner, style="bright_cyan")
 
     start = time.perf_counter()
