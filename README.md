@@ -9,6 +9,7 @@ This script allows you to search all text-based files in a directory for a given
 - Customizable file extensions to search
 - Search within a specific date range
 - File size limit option
+- Multi-threaded search
 
 ## Installation
 
@@ -45,21 +46,17 @@ This script allows you to search all text-based files in a directory for a given
     python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>] [--size-limit <size>] [--start-date <start_date>] [--end-date <end_date>]
     ```
 
-**`<directory>`**: The directory to search in.
+### Options
 
-**`<search_term>`**: The string to search for.
-
-**`--maxdepth <depth>`**: The maximum depth to recurse into subdirectories. Default is 1. Use '--depth -1' for all subdirectories.
-
-**`-e <extensions>`**: The file extensions to search within. Provide a comma-separated list. Default extensions include: **`.bat`, `.cfg`, `.csv`, `.css`, `.html`, `.ini`, `.js`, ``.log``, `.md`, `.ps1`, `.py`, `.sh`, `.txt`, `.xml`, `.yaml`, `.yml`**.
-
-**`--maxline <num>`**: The maximum line length to display. Default is 1000. Adjust if line is truncated.
-
-**`--start-date <start_date>`**: The start date for modification date filtering. Use format YYYY-MM-DD.
-
-**`--end-date <end_date>`**`: The end date for modification date filtering. Use format YYYY-MM-DD.
-
-**`--size-limit <size>`**: The maximum file size to consider in kilobytes.
+- **`<directory>`**: The directory to search in.
+- **`<search_term>`**: The string to search for.
+- **`--maxdepth <depth>`**: The maximum depth to recurse into subdirectories. Default is 1. Use '--maxdepth -1' for all subdirectories.
+- **`-e <extensions>`**: The file extensions to search within. Provide a comma-separated list. Default extensions include: `.bat`, `.cfg`, `.csv`, `.css`, `.html`, `.ini`, `.js`, `.log`, `.md`, `.ps1`, `.py`, `.sh`, `.txt`, `.xml`, `.yaml`, `.yml`.
+- **`--maxline <num>`**: The maximum line length to display. Default is 1000. Adjust if line is truncated.
+- **`--start-date <start_date>`**: The start date for modification date filtering. Use format YYYY-MM-DD.
+- **`--end-date <end_date>`**: The end date for modification date filtering. Use format YYYY-MM-DD.
+- **`--size-limit <size>`**: The maximum file size to consider in kilobytes.
+- **`-c, --case-sensitive`**: Perform a case-sensitive search.
 
 ## Dependencies
 
