@@ -34,16 +34,16 @@ This script allows you to search all text-based files in a directory for a given
 
 ## Usage
 
-1. Create the virtual environment
+1. Activate the virtual environment:
 
     ```bash
     poetry shell
     ```
 
-2. Run using the following commands:
+2. Run the script using the following command:
 
     ```bash
-    python string_searcher.py <directory> <search_term> [--maxdepth <depth>] [-e <extensions>] [--maxline <num>] [--size-limit <size>] [--start-date <start_date>] [--end-date <end_date>]
+    python string_searcher.py <directory> <search_term> [options]
     ```
 
 ### Options
@@ -58,6 +58,12 @@ This script allows you to search all text-based files in a directory for a given
 - **`--size-limit <size>`**: The maximum file size to consider in kilobytes.
 - **`-c, --case-sensitive`**: Perform a case-sensitive search.
 
+### Example
+
+```bash
+python string_searcher.py /path/to/search "search term" --maxdepth 3 -e .txt,.py,.md --maxline 500 --start-date 2023-01-01 --size-limit 1024
+```
+
 ## Dependencies
 
 **`rich`**: For rich console output.
@@ -68,8 +74,10 @@ This script is licensed under the MIT License. Feel free to modify and use it ac
 
 ## Credits
 
-The script utilizes the rich library for enhanced console output.
+- The script utilizes the [rich](https://github.com/Textualize/rich) library for enhanced console output.
+- The banner text used in the script is courtesy of [Manytools](https://manytools.org/hacker-tools/ascii-banner/).
+- The text file extension list is courtesy of [File-Extensions](https://www.file-extensions.org/filetype/extension/name/text-files).
 
-The banner text used in the script is courtesy of [Manytools](https://manytools.org/hacker-tools/ascii-banner/).
+## Contributing
 
-The text file extension list is courtesy of [File-Extensions](https://www.file-extensions.org/filetype/extension/name/text-files).
+Like to contribute? Feel free to submit a Pull Request.
