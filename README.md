@@ -132,3 +132,7 @@ MIT. See `LICENSE`.
 - [rich](https://github.com/Textualize/rich) — console output
 - Banner text from [Manytools](https://manytools.org/hacker-tools/ascii-banner/)
 - Text-file extension list from [File-Extensions](https://www.file-extensions.org/filetype/extension/name/text-files)
+
+## Contributing
+
+Pull requests welcome.
