@@ -52,11 +52,18 @@ def load_acceptable_extensions() -> frozenset[str]:
     return frozenset(json.loads(path.read_text(encoding="utf-8")))
 
 
+# Windows caps ProcessPoolExecutor at 61 workers (see CPython's _MAX_WINDOWS_WORKERS).
+_WINDOWS_PROCESS_POOL_CAP = 61
+
+
 def default_executor_factory(cfg: SearchConfig) -> tuple[type[Executor], int]:
     """Regex search is CPU-bound (ProcessPool); literal search is I/O-bound (ThreadPool)."""
     cores = multiprocessing.cpu_count()
     if cfg.use_regex:
-        return ProcessPoolExecutor, 3 * cores
+        workers = 3 * cores
+        if sys.platform == "win32":
+            workers = min(workers, _WINDOWS_PROCESS_POOL_CAP)
+        return ProcessPoolExecutor, workers
     return ThreadPoolExecutor, 5 * cores
 
 
