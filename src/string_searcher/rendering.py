@@ -41,7 +41,7 @@ def render_summary(*, directories: int, files_with_hits: int, term: str, maxdept
 
 
 def render_extension_help(suggestions: list[str]) -> Panel:
-    """Render a help panel for unrecognised extensions."""
+    """Render a help panel for unrecognized extensions."""
     body = (
         f"Did you mean to search for one of these extensions? :thinking_face:\n\n"
         f"[bright_white]{', '.join(suggestions)}[/bright_white]"

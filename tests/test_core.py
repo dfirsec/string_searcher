@@ -6,6 +6,7 @@ from datetime import datetime
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from string_searcher.config import SearchInputs
 from string_searcher.config import build_config
 from string_searcher.core import scan_directory
 from string_searcher.core import search_file
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def _cfg(directory: Path, *, term: str = "hello", **overrides):
+def _cfg(directory: Path, *, term: str = "hello", acceptable=None, **overrides):
     base = {
         "directory": str(directory),
         "search_term": term,
@@ -25,11 +26,9 @@ def _cfg(directory: Path, *, term: str = "hello", **overrides):
         "start_date": None,
         "end_date": None,
         "size_limit_kb": None,
-        "acceptable_extensions": {".txt", ".py"},
-        "suggester": lambda r, c: [],
     }
     base.update(overrides)
-    return build_config(**base)
+    return build_config(SearchInputs(**base), acceptable or {".txt", ".py"}, lambda r, c: [])
 
 
 class TestScanDirectory:
@@ -46,7 +45,7 @@ class TestScanDirectory:
         assert {"a.txt", "b.py", "c.txt", "d.txt"} <= names
 
     def test_filters_by_extension(self, sample_tree) -> None:
-        cfg = _cfg(sample_tree, maxdepth=-1, extensions=".py", acceptable_extensions={".py"})
+        cfg = _cfg(sample_tree, maxdepth=-1, extensions=".py", acceptable={".py"})
         scan = scan_directory(cfg)
         assert all(p.suffix == ".py" for p in scan.files)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 import pytest
+from string_searcher.config import SearchInputs
 from string_searcher.config import build_config
 from string_searcher.config import build_pattern
 from string_searcher.config import normalize_extensions
@@ -65,36 +66,38 @@ class TestBuildPattern:
             build_pattern("", case_sensitive=False)
 
 
-class TestBuildConfig:
-    def _kwargs(self, **overrides):
-        base = {
-            "directory": ".",
-            "search_term": "foo",
-            "maxdepth": 1,
-            "extensions": ".py,.txt",
-            "maxline": 1000,
-            "case_sensitive": False,
-            "start_date": None,
-            "end_date": None,
-            "size_limit_kb": None,
-            "acceptable_extensions": {".py", ".txt", ".md"},
-            "suggester": lambda req, cands: [],
-        }
-        base.update(overrides)
-        return base
+_DEFAULT_ACCEPTABLE = frozenset({".py", ".txt", ".md"})
 
+
+def _inputs(**overrides) -> SearchInputs:
+    base = {
+        "directory": ".",
+        "search_term": "foo",
+        "maxdepth": 1,
+        "extensions": ".py,.txt",
+        "maxline": 1000,
+        "case_sensitive": False,
+        "start_date": None,
+        "end_date": None,
+        "size_limit_kb": None,
+    }
+    base.update(overrides)
+    return SearchInputs(**base)
+
+
+class TestBuildConfig:
     def test_happy_path(self) -> None:
-        cfg = build_config(**self._kwargs())
+        cfg = build_config(_inputs(), _DEFAULT_ACCEPTABLE, lambda r, c: [])
         assert cfg.use_regex is False
         assert cfg.size_limit_bytes is None
         assert ".py" in cfg.extensions
 
     def test_zero_size_limit_treated_as_none(self) -> None:
-        cfg = build_config(**self._kwargs(size_limit_kb=0))
+        cfg = build_config(_inputs(size_limit_kb=0), _DEFAULT_ACCEPTABLE, lambda r, c: [])
         assert cfg.size_limit_bytes is None
 
     def test_size_limit_converted_to_bytes(self) -> None:
-        cfg = build_config(**self._kwargs(size_limit_kb=2.5))
+        cfg = build_config(_inputs(size_limit_kb=2.5), _DEFAULT_ACCEPTABLE, lambda r, c: [])
         assert cfg.size_limit_bytes == 2560
 
     def test_invalid_extension_raises_with_suggestions(self) -> None:
@@ -105,11 +108,11 @@ class TestBuildConfig:
             return [".py"]
 
         with pytest.raises(InvalidExtensionError) as exc_info:
-            build_config(**self._kwargs(extensions=".xyz", suggester=suggester))
+            build_config(_inputs(extensions=".xyz"), _DEFAULT_ACCEPTABLE, suggester)
         assert exc_info.value.suggestions == [".py"]
         assert called["req"]
 
     def test_regex_metachars_route_to_regex(self) -> None:
-        cfg = build_config(**self._kwargs(search_term="fo+"))
+        cfg = build_config(_inputs(search_term="fo+"), _DEFAULT_ACCEPTABLE, lambda r, c: [])
         assert cfg.use_regex is True
         assert isinstance(cfg.pattern, re.Pattern)

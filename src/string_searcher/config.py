@@ -72,35 +72,41 @@ def build_pattern(term: str, *, case_sensitive: bool) -> tuple[re.Pattern[str], 
     return re.compile(rf"(?<!\w){re.escape(term)}(?!\w)", flags=flags), False
 
 
+@dataclass(frozen=True, slots=True)
+class SearchInputs:
+    """Raw, unvalidated user inputs (typically from argparse)."""
+
+    directory: str
+    search_term: str
+    maxdepth: int
+    extensions: str
+    maxline: int
+    case_sensitive: bool
+    start_date: str | None
+    end_date: str | None
+    size_limit_kb: float | None
+
+
 def build_config(
-    *,
-    directory: str,
-    search_term: str,
-    maxdepth: int,
-    extensions: str,
-    maxline: int,
-    case_sensitive: bool,
-    start_date: str | None,
-    end_date: str | None,
-    size_limit_kb: float | None,
+    inputs: SearchInputs,
     acceptable_extensions: Iterable[str],
     suggester: Callable[[str, Iterable[str]], list[str]],
 ) -> SearchConfig:
-    """Build a validated SearchConfig or raise a SearchError subclass."""
-    pattern, use_regex = build_pattern(search_term, case_sensitive=case_sensitive)
-    ext_set = normalize_extensions(extensions)
+    """Build a validated SearchConfig from raw inputs, or raise a SearchError subclass."""
+    pattern, use_regex = build_pattern(inputs.search_term, case_sensitive=inputs.case_sensitive)
+    ext_set = normalize_extensions(inputs.extensions)
     acceptable = frozenset(acceptable_extensions)
     if not ext_set & acceptable:
         raise InvalidExtensionError(ext_set, suggester(str(ext_set), acceptable))
     return SearchConfig(
-        directory=Path(directory),
+        directory=Path(inputs.directory),
         pattern=pattern,
         use_regex=use_regex,
         extensions=ext_set,
-        maxdepth=maxdepth,
-        maxline=maxline,
-        start_date=parse_date(start_date),
-        end_date=parse_date(end_date),
+        maxdepth=inputs.maxdepth,
+        maxline=inputs.maxline,
+        start_date=parse_date(inputs.start_date),
+        end_date=parse_date(inputs.end_date),
         # Preserves original semantics: 0 / None / negative-ish → no limit.
-        size_limit_bytes=int(size_limit_kb * 1024) if size_limit_kb else None,
+        size_limit_bytes=int(inputs.size_limit_kb * 1024) if inputs.size_limit_kb else None,
     )

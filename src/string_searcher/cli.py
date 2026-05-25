@@ -20,6 +20,7 @@ from rich.traceback import install as install_rich_traceback
 
 from .config import DEFAULT_EXTENSIONS
 from .config import SearchConfig
+from .config import SearchInputs
 from .config import build_config
 from .core import FileMatch
 from .core import scan_directory
@@ -52,11 +53,18 @@ def load_acceptable_extensions() -> frozenset[str]:
     return frozenset(json.loads(path.read_text(encoding="utf-8")))
 
 
+# Windows caps ProcessPoolExecutor at 61 workers (see CPython's _MAX_WINDOWS_WORKERS).
+_WINDOWS_PROCESS_POOL_CAP = 61
+
+
 def default_executor_factory(cfg: SearchConfig) -> tuple[type[Executor], int]:
     """Regex search is CPU-bound (ProcessPool); literal search is I/O-bound (ThreadPool)."""
     cores = multiprocessing.cpu_count()
     if cfg.use_regex:
-        return ProcessPoolExecutor, 3 * cores
+        workers = 3 * cores
+        if sys.platform == "win32":
+            workers = min(workers, _WINDOWS_PROCESS_POOL_CAP)
+        return ProcessPoolExecutor, workers
     return ThreadPoolExecutor, 5 * cores
 
 
@@ -110,20 +118,19 @@ def main(
     args = _build_arg_parser().parse_args(argv)
     acceptable = acceptable_extensions or load_acceptable_extensions()
 
+    inputs = SearchInputs(
+        directory=args.directory,
+        search_term=args.search_term,
+        maxdepth=args.maxdepth,
+        extensions=args.extensions,
+        maxline=args.maxline,
+        case_sensitive=args.case_sensitive,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        size_limit_kb=args.size_limit,
+    )
     try:
-        cfg = build_config(
-            directory=args.directory,
-            search_term=args.search_term,
-            maxdepth=args.maxdepth,
-            extensions=args.extensions,
-            maxline=args.maxline,
-            case_sensitive=args.case_sensitive,
-            start_date=args.start_date,
-            end_date=args.end_date,
-            size_limit_kb=args.size_limit,
-            acceptable_extensions=acceptable,
-            suggester=suggest_extensions,
-        )
+        cfg = build_config(inputs, acceptable, suggest_extensions)
     except InvalidExtensionError as exc:
         console.print(f":no_entry: [red]\\[ERROR][/red] {exc}")
         if exc.suggestions:
